@@ -1,0 +1,59 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
+!_TAG_PROC_CWD	/home/jeonghoon/2025-lab/io_uring-echo-server/	//
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	5.9.0	//
+ACCEPT	io_uring_echo_server.c	/^    ACCEPT,$/;"	e	enum:__anon3b2b77060103	file:
+BACKLOG	io_uring_echo_server.c	/^#define BACKLOG /;"	d	file:
+BUFFERS_COUNT	io_uring_echo_server.c	/^#define BUFFERS_COUNT /;"	d	file:
+Benchmarks (without buffer selection)	README.md	/^## Benchmarks (without buffer selection)$/;"	s	chapter:io_uring bare minimum echo server
+CCFLAGS	Makefile	/^CCFLAGS ?= -Wall -O2 -D_GNU_SOURCE -luring$/;"	m
+First install the latest liburing:	README.md	/^#### First install the latest liburing:$/;"	t	section:io_uring bare minimum echo server""Install and run
+Install and run	README.md	/^## Install and run$/;"	s	chapter:io_uring bare minimum echo server
+MAX_CONNECTIONS	io_uring_echo_server.c	/^#define MAX_CONNECTIONS /;"	d	file:
+MAX_MESSAGE_LEN	io_uring_echo_server.c	/^#define MAX_MESSAGE_LEN /;"	d	file:
+PROV_BUF	io_uring_echo_server.c	/^    PROV_BUF,$/;"	e	enum:__anon3b2b77060103	file:
+READ	io_uring_echo_server.c	/^    READ,$/;"	e	enum:__anon3b2b77060103	file:
+Then install io_uring-echo-server:	README.md	/^#### Then install io_uring-echo-server:$/;"	t	section:io_uring bare minimum echo server""Install and run
+Versions	README.md	/^## Versions$/;"	s	chapter:io_uring bare minimum echo server
+WRITE	io_uring_echo_server.c	/^    WRITE,$/;"	e	enum:__anon3b2b77060103	file:
+__anon3b2b77060103	io_uring_echo_server.c	/^enum {$/;"	g	file:
+add_accept	io_uring_echo_server.c	/^void add_accept(struct io_uring *ring, int fd, struct sockaddr *client_addr, socklen_t *client_l/;"	f	typeref:typename:void
+add_provide_buf	io_uring_echo_server.c	/^void add_provide_buf(struct io_uring *ring, __u16 bid, unsigned gid) {$/;"	f	typeref:typename:void
+add_socket_read	io_uring_echo_server.c	/^void add_socket_read(struct io_uring *ring, int fd, unsigned gid, size_t message_size, unsigned /;"	f	typeref:typename:void
+add_socket_write	io_uring_echo_server.c	/^void add_socket_write(struct io_uring *ring, int fd, __u16 bid, size_t message_size, unsigned fl/;"	f	typeref:typename:void
+all	Makefile	/^all: $(all_targets)$/;"	t
+all_targets	Makefile	/^all_targets = io_uring_echo_server$/;"	m
+benchmark results, requests/second	benchmarks/benchmarks.md	/^## benchmark results, requests\/second$/;"	s	chapter:io_uring echo server benchmarks
+benchmark tool	benchmarks/benchmarks.md	/^## benchmark tool$/;"	s	chapter:io_uring echo server benchmarks
+bid	io_uring_echo_server.c	/^    __u16 bid;$/;"	m	struct:conn_info	typeref:typename:__u16	file:
+bufs	io_uring_echo_server.c	/^char bufs[BUFFERS_COUNT][MAX_MESSAGE_LEN] = {0};$/;"	v	typeref:typename:char[][]
+clean	Makefile	/^clean:$/;"	t
+compare with epoll echo server	README.md	/^## compare with epoll echo server$/;"	s	chapter:io_uring bare minimum echo server
+conn_info	io_uring_echo_server.c	/^typedef struct conn_info {$/;"	s	file:
+conn_info	io_uring_echo_server.c	/^} conn_info;$/;"	t	typeref:struct:conn_info	file:
+extra info	benchmarks/benchmarks.md	/^## extra info$/;"	s	chapter:io_uring echo server benchmarks
+fd	io_uring_echo_server.c	/^    __u32 fd;$/;"	m	struct:conn_info	typeref:typename:__u32	file:
+group_id	io_uring_echo_server.c	/^int group_id = 1337;$/;"	v	typeref:typename:int
+io_uring bare minimum echo server	README.md	/^# io_uring bare minimum echo server$/;"	c
+io_uring echo server benchmarks	benchmarks/benchmarks.md	/^# io_uring echo server benchmarks$/;"	c
+io_uring_echo_server	Makefile	/^io_uring_echo_server:$/;"	t
+liburing	Makefile	/^liburing:$/;"	t
+main	io_uring_echo_server.c	/^int main(int argc, char *argv[]) {$/;"	f	typeref:typename:int
+programs under test	benchmarks/benchmarks.md	/^## programs under test$/;"	s	chapter:io_uring echo server benchmarks
+requirements to run the benchmarks	benchmarks/benchmarks.md	/^## requirements to run the benchmarks$/;"	s	chapter:io_uring echo server benchmarks
+system specs for the benchmarks	benchmarks/benchmarks.md	/^## system specs for the benchmarks$/;"	s	chapter:io_uring echo server benchmarks
+type	io_uring_echo_server.c	/^    __u16 type;$/;"	m	struct:conn_info	typeref:typename:__u16	file:
+v1.0	README.md	/^### v1.0$/;"	S	section:io_uring bare minimum echo server""Versions
+v1.1	README.md	/^### v1.1$/;"	S	section:io_uring bare minimum echo server""Versions
+v1.3	README.md	/^### v1.3$/;"	S	section:io_uring bare minimum echo server""Versions
+v1.4	README.md	/^### v1.4$/;"	S	section:io_uring bare minimum echo server""Versions
+v1.5	README.md	/^### v1.5$/;"	S	section:io_uring bare minimum echo server""Versions
+v1.6	README.md	/^### v1.6$/;"	S	section:io_uring bare minimum echo server""Versions
+v1.7	README.md	/^### v1.7$/;"	S	section:io_uring bare minimum echo server""Versions
