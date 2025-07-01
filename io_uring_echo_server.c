@@ -8,19 +8,20 @@
 
 #include <stdlib.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <stdint.h>
 
-#define MAX_CONNECTIONS 4096
-#define BACKLOG 1024
-#define QUEUE_SIZE 256
-#define CQE_MULTIPLIER 16
+#define MAX_CONNECTIONS 65536
+#define BACKLOG 65536
+#define QUEUE_SIZE 4096
+#define CQE_MULTIPLIER 4
 #define MAX_MESSAGE_LEN 2048
 //#define IORING_FEAT_FAST_POLL (1U << 5)
-#define MAX_MEASUREMENTS 100000000
+#define MAX_MEASUREMENTS 200000000
 
 void add_accept(struct io_uring *ring, int fd, struct sockaddr *client_addr, socklen_t *client_len, unsigned flags);
 void add_socket_read(struct io_uring* ring, int fd, size_t size, unsigned flags);
@@ -54,6 +55,7 @@ int completion = 0;
 int completion_max = 0;
 int cur_state = 0;
 
+
 void dump_latency_to_file(const char *filename)
 {
     FILE *fp = fopen(filename, "w");
@@ -65,6 +67,8 @@ void dump_latency_to_file(const char *filename)
     for (int i = 0; i < latency_index; i++) {
         fprintf(fp, "%llu\n", (unsigned long long)latency_array[i]);
     }
+
+	fprintf(fp, "MEAUSREMENT:%d\n", latency_index);
 
     fclose(fp);
 }
@@ -124,6 +128,7 @@ int main(int argc, char *argv[])
     memset(&params, 0, sizeof(params));
 
 	params.flags = IORING_SETUP_SQPOLL | IORING_SETUP_CQSIZE;
+	// params.flags = IORING_SETUP_SQPOLL;
 	params.sq_thread_idle = 999999;
 	params.cq_entries = QUEUE_SIZE * CQE_MULTIPLIER;
 	
@@ -203,8 +208,10 @@ int main(int argc, char *argv[])
             if (type == ACCEPT)
             {
                 int sock_conn_fd = cqe->res;
+				int flag = 1;
                 io_uring_cqe_seen(&ring, cqe);
 
+				setsockopt(sock_conn_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
                 // new connected client; read data from socket and re-add accept to monitor for new connections
                 add_socket_read(&ring, sock_conn_fd, MAX_MESSAGE_LEN, 0);
                 add_accept(&ring, sock_listen_fd, (struct sockaddr *)&client_addr, &client_len, 0);
