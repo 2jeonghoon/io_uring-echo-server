@@ -5,6 +5,7 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
+#include <sched.h>
 
 #include <stdlib.h>
 #include <netinet/in.h>
@@ -17,11 +18,13 @@
 
 #define MAX_CONNECTIONS 65536
 #define BACKLOG 65536
-#define QUEUE_SIZE 4096
+#define QUEUE_SIZE 64
 #define CQE_MULTIPLIER 4
 #define MAX_MESSAGE_LEN 2048
 //#define IORING_FEAT_FAST_POLL (1U << 5)
 #define MAX_MEASUREMENTS 200000000
+
+int portno;
 
 void add_accept(struct io_uring *ring, int fd, struct sockaddr *client_addr, socklen_t *client_len, unsigned flags);
 void add_socket_read(struct io_uring* ring, int fd, size_t size, unsigned flags);
@@ -53,11 +56,12 @@ int latency_index = 0;
 int submission = 0;
 int completion = 0;
 int completion_max = 0;
-int cur_state = 0;
+int user_count = 0;
 
-
-void dump_latency_to_file(const char *filename)
+void dump_latency_to_file(const char *base_filename)
 {
+	char filename[256];
+	snprintf(filename, sizeof(filename), "%s_%d.txt",base_filename, portno);
     FILE *fp = fopen(filename, "w");
     if (!fp) {
         perror("fopen");
@@ -75,9 +79,8 @@ void dump_latency_to_file(const char *filename)
 
 void signal_handler(int signum) {
 	if (signum == SIGINT) {
-		dump_latency_to_file("latency_dump.txt");
+		dump_latency_to_file("latency_dump");
 		printf("submission:%d, completion:%d _max:%d\n", submission, completion, completion_max);
-		printf("cur state:%d\n", cur_state);
 		exit(0);
 	}
 }
@@ -94,9 +97,11 @@ int main(int argc, char *argv[])
 	signal(SIGINT, signal_handler);
 
     // some variables we need
-    int portno = strtol(argv[1], NULL, 10);
+    portno = strtol(argv[1], NULL, 10);
     struct sockaddr_in serv_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
+
+	int order = atoi(argv[2]) % 8;
 
     // setup socket
     int sock_listen_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
@@ -127,8 +132,8 @@ int main(int argc, char *argv[])
     struct io_uring ring;
     memset(&params, 0, sizeof(params));
 
-	params.flags = IORING_SETUP_SQPOLL | IORING_SETUP_CQSIZE;
-	// params.flags = IORING_SETUP_SQPOLL;
+	params.flags = IORING_SETUP_SQPOLL | IORING_SETUP_CQSIZE | IORING_SETUP_SQ_AFF;
+	params.sq_thread_cpu = order;
 	params.sq_thread_idle = 999999;
 	params.cq_entries = QUEUE_SIZE * CQE_MULTIPLIER;
 	
@@ -157,6 +162,18 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+	
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(order + 8, &cpuset);
+
+	pid_t pid = getpid();
+	if (sched_setaffinity(pid, sizeof(cpuset), &cpuset) != 0) {
+		perror("sched_setaffinity 실패");
+		return 1;
+	}
+	
+
     // add first accept sqe to monitor for new incoming connections
     add_accept(&ring, sock_listen_fd, (struct sockaddr *)&client_addr, &client_len, 0);
 
@@ -181,8 +198,6 @@ int main(int argc, char *argv[])
         struct io_uring_cqe *cqes[QUEUE_SIZE*CQE_MULTIPLIER];
         int cqe_count = io_uring_peek_batch_cqe(&ring, cqes, sizeof(cqes) / sizeof(cqes[0]));
 		completion += cqe_count;
-		
-		cur_state = 0;
 
 		if (cqe_count > completion_max) {
 			completion_max = cqe_count;
@@ -209,6 +224,7 @@ int main(int argc, char *argv[])
             {
                 int sock_conn_fd = cqe->res;
 				int flag = 1;
+				user_count++;	
                 io_uring_cqe_seen(&ring, cqe);
 
 				setsockopt(sock_conn_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
@@ -222,6 +238,12 @@ int main(int argc, char *argv[])
                 if (bytes_read <= 0)
                 {
                     // no bytes available on socket, client must be disconnected
+
+					if (--user_count == 0) {
+							dump_latency_to_file("latency_dump");
+							printf("submission:%d, completion:%d _max:%d\n", submission, completion, completion_max);
+							exit(0);
+					}
                     io_uring_cqe_seen(&ring, cqe);
                     shutdown(user_data->fd, SHUT_RDWR);
                 }
@@ -277,11 +299,9 @@ void add_socket_read(struct io_uring *ring, int fd, size_t size, unsigned flags)
 	if (!sqe) {
 		uint64_t start = get_ns();
         io_uring_submit(ring);
-		cur_state = 1;
 		while (!sqe) {
 			sqe = io_uring_get_sqe(ring);
 		}
-		cur_state = 0;
 		uint64_t end = get_ns();
 
 		if (latency_index < MAX_MEASUREMENTS) {
@@ -309,11 +329,9 @@ void add_socket_write(struct io_uring *ring, int fd, size_t size, unsigned flags
 	
 		io_uring_submit(ring);
 
-		cur_state = 1;
 		while (!sqe) {
 			sqe = io_uring_get_sqe(ring);
 		}
-		cur_state = 0;
 		
 		uint64_t end = get_ns();
 
