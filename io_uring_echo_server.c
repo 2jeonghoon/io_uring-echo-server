@@ -18,8 +18,8 @@
 
 #define MAX_CONNECTIONS 65536
 #define BACKLOG 65536
-#define QUEUE_SIZE 64
-#define CQE_MULTIPLIER 4
+#define QUEUE_SIZE 1024
+#define CQE_MULTIPLIER 16
 #define MAX_MESSAGE_LEN 2048
 //#define IORING_FEAT_FAST_POLL (1U << 5)
 #define MAX_MEASUREMENTS 200000000
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
 	
 	cpu_set_t cpuset;
 	CPU_ZERO(&cpuset);
-	CPU_SET(order + 8, &cpuset);
+	CPU_SET(order + 1, &cpuset);
 
 	pid_t pid = getpid();
 	if (sched_setaffinity(pid, sizeof(cpuset), &cpuset) != 0) {
