@@ -6,7 +6,7 @@ cleanup() {
 		echo ""		
 		echo "🛑 서버와 모니터링을 종료합니다."
 		kill $PIDSTAT_PID 2>/dev/null
-		kill $SERVER_PID 2>/dev/null
+		kill -INT $SERVER_PID 2>/dev/null
 		wait $SERVER_PID 2>/dev/null
 
 		# Ensure file I/O is completed
@@ -20,7 +20,7 @@ cleanup() {
 trap cleanup SIGINT
 
 # 서버 실행 (백그라운드)
-./io_uring_udp_server -p 8050&
+./napi-busy-poll-server -l -a "192.168.1.101" -b -s 1 -p 8050 -u &
 SERVER_PID=$!
 
 # pidstat로 CPU 사용량 로그 기록 (1초마다)

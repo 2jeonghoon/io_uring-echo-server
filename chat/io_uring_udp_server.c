@@ -26,6 +26,7 @@ int latency_array[MAX_MEASUREMENTS];
 struct sendmsg_ctx {
 	struct msghdr msg;
 	struct iovec iov;
+	int buffer_idx;
 };
 
 struct buffer_state {
@@ -74,6 +75,8 @@ static void dump_latency_to_file(const char *base_filename) {
 	for (int i = 0; i < latency_index; i++) {
 		fprintf(fp, "%llu\n", (unsigned long long)latency_array[i]);
 	}
+
+	fprintf(fp, "fin\n");
 
 	fclose(fp);
 }
@@ -274,7 +277,10 @@ static bool addr_equal(struct sockaddr_storage *a, struct sockaddr_storage *b) {
     }
     return false;
 }
-
+struct recv_ctx {
+    struct msghdr msg;
+    struct iovec iov;
+};
 static void register_client(struct ctx *ctx, struct sockaddr_storage *addr, socklen_t addr_len) {
     for (size_t i = 0; i < ctx->clients.count; i++) {
         if (addr_equal(&ctx->clients.clients[i].addr, addr)) {
@@ -296,12 +302,19 @@ static int add_recv(struct ctx *ctx, int idx)
 
 	get_sqe(ctx, &sqe);
 
-	io_uring_prep_recvmsg_multishot(sqe, idx, &ctx->msg, MSG_TRUNC);
+	struct recv_ctx *rctx = malloc(sizeof(*rctx));
+	memset(rctx, 0, sizeof(*rctx));
+
+	rctx->iov.iov_base = NULL;
+	rctx->msg.msg_iov = &rctx->iov;
+	rctx->msg.msg_iovlen = 1;
+
+	io_uring_prep_recvmsg_multishot(sqe, idx, &rctx->msg, MSG_TRUNC);
 	sqe->flags |= IOSQE_FIXED_FILE;
 
 	sqe->flags |= IOSQE_BUFFER_SELECT;
 	sqe->buf_group = 0;
-	io_uring_sqe_set_data64(sqe, BUFFERS + 1);
+	io_uring_sqe_set_data(sqe, rctx);
 	return 0;
 }
 
@@ -314,7 +327,8 @@ static void recycle_buffer(struct ctx *ctx, int idx)
 
 static int process_cqe_send(struct ctx *ctx, struct io_uring_cqe *cqe)
 {
-	int idx = cqe->user_data;
+	struct sendmsg_ctx *send = io_uring_cqe_get_data(cqe);
+	int idx = send->buffer_idx;
 
 	if (cqe->res < 0)
 		fprintf(stderr, "bad send %s\n", strerror(-cqe->res));
@@ -326,6 +340,9 @@ static int process_cqe_send(struct ctx *ctx, struct io_uring_cqe *cqe)
 			recycle_buffer(ctx, idx);
 		}
 	}
+
+	free(send);
+
 	return 0;
 }
 
@@ -398,9 +415,8 @@ static int process_cqe_recv(struct ctx *ctx, struct io_uring_cqe *cqe,
 
     // register client
     register_client(ctx, (struct sockaddr_storage *)io_uring_recvmsg_name(o), o->namelen);
-
-	ctx->buf_states[idx].refcount = ctx->clients.count;
 	ctx->buf_states[idx].in_use = true;
+	ctx->buf_states[idx].refcount = ctx->clients.count;
 
 	void *payload_ptr = io_uring_recvmsg_payload(o, &ctx->msg);
 	size_t payload_len = io_uring_recvmsg_payload_length(o, cqe->res, &ctx->msg);
@@ -418,21 +434,25 @@ static int process_cqe_recv(struct ctx *ctx, struct io_uring_cqe *cqe,
 	// prepare send to all clients
     for (size_t i = 0; i < ctx->clients.count; i++) {
 		struct client_info *client = &ctx->clients.clients[i];
-		int send_idx = idx; // 같은 버퍼를 공유
+		struct sendmsg_ctx *send = malloc(sizeof(struct sendmsg_ctx));
 
 		get_sqe(ctx, &sqe);
 
-		ctx->send[send_idx].iov.iov_base = payload_ptr;
-		ctx->send[send_idx].iov.iov_len  = payload_len;
-		ctx->send[send_idx].msg.msg_namelen  = client->addr_len;
-	    ctx->send[send_idx].msg.msg_name     = &client->addr;
-	    ctx->send[send_idx].msg.msg_control      = NULL;
-	    ctx->send[send_idx].msg.msg_controllen   = 0;
-	    ctx->send[send_idx].msg.msg_iov          = &ctx->send[send_idx].iov;
-	    ctx->send[send_idx].msg.msg_iovlen       = 1;
+		send->buffer_idx = idx;
 
-		io_uring_prep_sendmsg(sqe, fdidx, &ctx->send[send_idx].msg, 0);
-	    io_uring_sqe_set_data64(sqe, send_idx);
+		send->iov.iov_base	= payload_ptr;
+		send->iov.iov_len	= payload_len;
+		send->msg = (struct msghdr) {
+			.msg_namelen = client->addr_len,
+			.msg_name = &client->addr,
+			.msg_control = NULL,
+			.msg_controllen = 0,
+			.msg_iov = &send->iov,
+			.msg_iovlen = 1,
+		};
+
+		io_uring_prep_sendmsg(sqe, fdidx, &send->msg, 0);
+	    io_uring_sqe_set_data(sqe, send);
 	    sqe->flags |= IOSQE_FIXED_FILE;
 
 	    if (ctx->verbose) {
@@ -451,26 +471,6 @@ static int process_cqe_recv(struct ctx *ctx, struct io_uring_cqe *cqe,
 
 		    fprintf(stderr, "[SEND] To %s:%d → \"%s\"\n", addr_str, port, printbuf);
 	    }
-
-		/*if (get_sqe(ctx, &sqe))
-            return -1;
-
-        ctx->send[idx].iov = (struct iovec) {
-            .iov_base = io_uring_recvmsg_payload(o, &ctx->msg),
-            .iov_len  = io_uring_recvmsg_payload_length(o, cqe->res, &ctx->msg),
-        };
-        ctx->send[idx].msg = (struct msghdr) {
-            .msg_namelen = ctx->clients.clients[i].addr_len,
-            .msg_name = &ctx->clients.clients[i].addr,
-            .msg_control = NULL,
-            .msg_controllen = 0,
-            .msg_iov = &ctx->send[idx].iov,
-            .msg_iovlen = 1,
-        };
-
-        io_uring_prep_sendmsg(sqe, fdidx, &ctx->send[idx].msg, 0);
-        io_uring_sqe_set_data64(sqe, idx); // buffer index
-        sqe->flags |= IOSQE_FIXED_FILE;*/
     }
 
 	return 0;
