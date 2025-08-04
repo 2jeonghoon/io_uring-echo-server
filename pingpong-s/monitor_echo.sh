@@ -20,7 +20,7 @@ cleanup() {
 trap cleanup SIGINT
 
 # 서버 실행 (백그라운드)
-./napi-busy-poll-server -l -a "192.168.1.101" -b -s 1 -p 8050 -u &
+./napi-busy-poll-server -l -a "192.168.1.121" -b -s 1 -p 8050 -u &
 SERVER_PID=$!
 
 # pidstat로 CPU 사용량 로그 기록 (1초마다)

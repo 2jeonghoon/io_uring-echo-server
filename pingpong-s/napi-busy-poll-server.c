@@ -218,20 +218,29 @@ static int find_or_add_client(struct ctx *ctx, struct sockaddr_storage *addr, so
 	return -1;
 }
 
+static struct io_uring_sqe* io_uring_sqe_overflow(struct io_uring *ring) {
+	uint64_t start  = get_ns();
+	struct io_uring_sqe *sqe;
+
+	io_uring_submit(ring);
+
+	while(!sqe)
+			sqe = io_uring_get_sqe(ring);
+
+	uint64_t end = get_ns();
+
+	if (latency_index < MAX_MEASUREMENTS)
+			latency_array[latency_index++] = end - start;
+
+	return sqe;
+
+}
+
 static struct io_uring_sqe* get_sqe(struct io_uring *ring) {
 	struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 
 	if (!sqe) {
-		uint64_t start = get_ns();
-
-		io_uring_submit(ring);
-		while(!sqe)
-			sqe = io_uring_get_sqe(ring);
-
-		uint64_t end = get_ns();
-
-		if (latency_index < MAX_MEASUREMENTS)
-			latency_array[latency_index++] = end - start;
+			sqe = io_uring_sqe_overflow(ring);
 	}
 
 	return sqe;

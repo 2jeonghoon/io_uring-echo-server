@@ -1,18 +1,16 @@
 kprobe:io_req_cqe_overflow
 {
-		@counts["io_req_cqe_overflow", ktime_ns() / 1000000] = count();
+		@counts["io_req_cqe_overflow", nsecs / 1000000] = count();
 }
 
-uprobe:/home/jhlee/io_uring-echo-server/pingpong-s/napi-busy-poll-server
+uprobe:/home/jhlee/io_uring-echo-server/pingpong-s/napi-busy-poll-server:io_uring_sqe_overflow
 {
-		@counts["io_uring_sqe_overflow", ktime_ns() / 1000000] = count();
+		@counts["io_uring_sqe_overflow", nsecs / 1000000] = count();
 }
 
 interval:s:1
 {
 		printf("function,tick,count\n");
-		foreach([func, tick] in @counts) {
-			printf("%s,%d,%d\n", func, tick, @counts[func, tick]);
-		}
+		print(@counts);
 		clear(@counts);
 }
