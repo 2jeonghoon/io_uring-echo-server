@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: MIT */
+#define _GNU_SOURCE
+
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
 #include <liburing.h>
 #include <math.h>
-#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +16,10 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <sched.h>
 
 #define MAXBUFLEN 1024
-#define MAX_CLIENTS 4096
+#define MAX_CLIENTS 8192
 #define RINGSIZE 1024
 #define CQE_MULTIPLIER 2
 #define MAX_MEASUREMENTS 200000000
@@ -339,7 +341,7 @@ static void completion(struct ctx *ctx, struct io_uring_cqe *cqe) {
 		free(data);
 	}
 	else {
-		fprintf(stderr, "Unknown CQE type: %lld\n", data->type);
+		fprintf(stderr, "Unknown CQE type: %d\n", data->type);
 	}
 }
 
@@ -457,8 +459,9 @@ int main(int argc, char *argv[])
 	memset(&ts, 0, sizeof(ts));
 	memset(&napi, 0, sizeof(napi));
 
-	params.flags = IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_CQSIZE;
+	params.flags = IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_CQSIZE | IORING_SETUP_SQ_AFF;
 	params.cq_entries = RINGSIZE * CQE_MULTIPLIER;
+	params.sq_thread_cpu = 0;
 	if (opt.defer_tw) {
 		params.flags |= IORING_SETUP_DEFER_TASKRUN;
 	} else if (opt.sq_poll) {
@@ -496,6 +499,16 @@ int main(int argc, char *argv[])
 		tsPtr = &ts;
 	else
 		tsPtr = NULL;
+
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(1, &cpuset);
+
+	pid_t pid = getpid();
+	if (sched_setaffinity(pid, sizeof(cpuset), &cpuset) != 0) {
+		perror("sched_setaffinity 실패");
+		return 1;
+	}
 
 	// Use realtime scheduler.
 	setProcessScheduler();
