@@ -224,8 +224,9 @@ static struct io_uring_sqe* io_uring_sqe_overflow(struct io_uring *ring) {
 
 	io_uring_submit(ring);
 
-	while(!sqe)
-			sqe = io_uring_get_sqe(ring);
+	do {	
+		sqe = io_uring_get_sqe(ring);
+	} while (!sqe);
 
 	uint64_t end = get_ns();
 
@@ -259,7 +260,7 @@ static void receivePing(struct ctx *ctx) {
 
 	recv_data->msg.msg_name = malloc(sizeof(struct sockaddr_storage));
 	recv_data->msg.msg_namelen = sizeof(struct sockaddr_storage);
-	recv_data->msg.msg_iov = &ctx->iov;
+	recv_data->msg.msg_iov = &recv_data->iov;
 	recv_data->msg.msg_iovlen = 1;
 
 	io_uring_prep_recvmsg(sqe, ctx->sockfd, &recv_data->msg, 0);
