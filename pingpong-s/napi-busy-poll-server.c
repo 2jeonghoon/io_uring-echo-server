@@ -304,7 +304,7 @@ static void completion(struct ctx *ctx, struct io_uring_cqe *cqe) {
 		if (sender_idx < 0) return;
 
 		for (int i = 0; i < MAX_CLIENTS; i++) {
-			if (!ctx->clients[i].active || i == sender_idx) continue;
+			if (!ctx->clients[i].active) continue;
 
 			struct sendmsg_data *send_data = malloc(sizeof(struct sendmsg_data));
 			send_data->type = IOURING_SENDMSG;
