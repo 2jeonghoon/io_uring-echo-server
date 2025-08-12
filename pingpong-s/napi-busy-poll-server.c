@@ -311,7 +311,7 @@ static void completion(struct ctx *ctx, struct io_uring_cqe *cqe) {
 			send_data->fd = ctx->sockfd;
 
 			send_data->buf = malloc(len);
-			memcpy(send_data->buf, ctx->buffer, len);
+			memcpy(send_data->buf, data->buf, len);
 
 			send_data->iov.iov_base = send_data->buf;
 			send_data->iov.iov_len = len;
